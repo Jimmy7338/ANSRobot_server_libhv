@@ -20,7 +20,7 @@ INCLUDES = -I. -I../../ -I../../base -I../../event -I../../http -I../../http/ser
 ORIGINAL_SRCS = handler.cpp router.cpp
 
 # 新增源文件（机器人后端）
-ROBOT_SRCS = device_manager.cpp robot_handler.cpp robot_router.cpp
+ROBOT_SRCS = device_manager.cpp robot_handler.cpp robot_router.cpp device_monitor.cpp
 
 # 所有源文件
 SRCS = httpd.cpp $(ORIGINAL_SRCS) $(ROBOT_SRCS)

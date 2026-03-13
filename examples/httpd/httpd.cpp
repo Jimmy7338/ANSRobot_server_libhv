@@ -10,6 +10,11 @@
 #include "robot_router.h"
 #include "device_manager.h"
 
+#include "evpp/EventLoopThreadPool.h"
+#include "device_monitor.h"
+
+#include <thread>
+
 // ============================================================================
 // 全局变量定义
 // ============================================================================
@@ -19,6 +24,10 @@ hv::HttpService g_http_service;
 
 // 全局设备管理器实例
 DeviceManager g_device_manager;
+
+// 基于 libhv 的 EventLoop 线程池和设备监控器
+hv::EventLoopThreadPool* g_loop_thread_pool = nullptr;
+DeviceMonitor*           g_device_monitor   = nullptr;
 
 // ============================================================================
 // 函数声明
@@ -294,6 +303,23 @@ int main(int argc, char** argv) {
     create_pidfile();
 
     // ========================================================================
+    // 初始化基于 libhv 的 EventLoopThreadPool 和设备监控器
+    // ========================================================================
+
+    unsigned int nthreads = std::thread::hardware_concurrency();
+    if (nthreads == 0) {
+        nthreads = 4;
+    }
+
+    g_loop_thread_pool = new hv::EventLoopThreadPool(nthreads);
+    g_loop_thread_pool->start(true);
+
+    hlogi("EventLoopThreadPool started with %u threads", nthreads);
+
+    g_device_monitor = new DeviceMonitor();
+    g_device_monitor->start();
+
+    // ========================================================================
     // 注册路由
     // ========================================================================
     
@@ -313,6 +339,22 @@ int main(int argc, char** argv) {
           g_http_server.port, g_http_server.worker_threads);
     
     g_http_server.run();
+
+    // ========================================================================
+    // 资源清理
+    // ========================================================================
+    if (g_device_monitor) {
+        g_device_monitor->stop();
+        delete g_device_monitor;
+        g_device_monitor = nullptr;
+    }
+
+    if (g_loop_thread_pool) {
+        g_loop_thread_pool->stop();
+        g_loop_thread_pool->join();
+        delete g_loop_thread_pool;
+        g_loop_thread_pool = nullptr;
+    }
     
     return ret;
 }

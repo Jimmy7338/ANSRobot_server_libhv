@@ -1,4 +1,3 @@
-// 异步版本的 RobotHandler，基于 libhv 的 EventLoopThreadPool + TimerThread
 #include "robot_handler.h"
 #include "hlog.h"
 #include "evpp/EventLoopThreadPool.h"
