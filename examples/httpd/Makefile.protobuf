@@ -1,0 +1,63 @@
+# Robot Backend - Protobuf + WebSocket 版本
+
+CXX = g++
+CXXFLAGS = -std=c++17 -Wall -O2 -I../../include -I../../base -I. -I$(HOME)/anaconda3/include
+LDFLAGS = -L../../lib -L$(HOME)/anaconda3/lib -lhv -lprotobuf -lpthread -Wl,-rpath,$(HOME)/anaconda3/lib
+
+# Protobuf 编译器
+PROTOC = protoc
+
+# 源文件
+PROTO_SRC = proto/robot.proto
+PROTO_CC = proto/robot.pb.cc
+PROTO_H = proto/robot.pb.h
+
+SOURCES = main_protobuf.cpp \
+          device_manager.cpp \
+          websocket_server.cpp \
+          tcp_server_protobuf.cpp \
+          $(PROTO_CC)
+
+OBJECTS = $(SOURCES:.cpp=.o)
+TARGET = robot_backend_protobuf
+
+# 默认目标
+all: proto $(TARGET)
+
+# 编译 Protobuf
+proto: $(PROTO_CC)
+
+$(PROTO_CC): $(PROTO_SRC)
+	@mkdir -p proto
+	$(PROTOC) --cpp_out=. $(PROTO_SRC)
+	@echo "Protobuf files generated"
+
+# 编译目标
+$(TARGET): $(OBJECTS)
+	$(CXX) -o $@ $^ $(LDFLAGS)
+	@echo "Build complete: $(TARGET)"
+
+# 编译规则
+%.o: %.cpp $(PROTO_H)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+proto/robot.pb.o: $(PROTO_CC)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# 清理
+clean:
+	rm -f $(OBJECTS) $(TARGET)
+	rm -f $(PROTO_CC) $(PROTO_H)
+	@echo "Clean complete"
+
+# 运行
+run: $(TARGET)
+	./$(TARGET)
+
+# 安装依赖（Ubuntu/Debian）
+install-deps:
+	@echo "Installing dependencies..."
+	sudo apt-get update
+	sudo apt-get install -y protobuf-compiler libprotobuf-dev
+
+.PHONY: all proto clean run install-deps

@@ -1,5 +1,5 @@
 #include "device_manager.h"
-#include "hlog.h"
+#include "hv/hlog.h"
 #include "protocol.h"
 
 bool DeviceManager::registerDevice(const std::string& device_id, const DeviceRegister& info) {

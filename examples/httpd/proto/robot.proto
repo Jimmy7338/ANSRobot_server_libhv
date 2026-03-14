@@ -1,0 +1,189 @@
+syntax = "proto3";
+
+package robot;
+
+// ============================================================================
+// 消息类型枚举
+// ============================================================================
+
+enum MessageType {
+    MSG_UNKNOWN = 0;
+    MSG_REGISTER = 1;           // 设备注册
+    MSG_TELEMETRY = 2;          // 状态上报（高频）
+    MSG_MAP_UPDATE = 3;         // 地图更新（中频）
+    MSG_FRONTIER_UPDATE = 4;    // 探索边界更新
+    MSG_YOLO_DETECTION = 5;     // YOLOv8 检测结果
+    MSG_CAMERA_FRAME = 6;       // 相机帧（MJPEG）
+    MSG_ACK = 100;              // 确认
+    MSG_ERROR = 101;            // 错误
+}
+
+// ============================================================================
+// 设备注册
+// ============================================================================
+
+message DeviceRegister {
+    string device_id = 1;           // 设备ID
+    string firmware_version = 2;    // 固件版本
+    int32 map_resolution = 3;       // 地图分辨率（cm/pixel）
+    bool has_occupancy = 4;         // 是否支持占用栅格
+    bool has_semantic = 5;          // 是否支持语义
+    bool has_camera = 6;            // 是否有相机
+    bool has_yolo = 7;              // 是否支持 YOLOv8
+}
+
+message DeviceRegisterAck {
+    bool success = 1;
+    string message = 2;
+    string session_id = 3;          // 会话ID
+}
+
+// ============================================================================
+// 实时状态上报
+// ============================================================================
+
+message Telemetry {
+    double timestamp = 1;           // 时间戳
+    
+    // 位姿
+    double x = 2;                   // 位置 x (m)
+    double y = 3;                   // 位置 y (m)
+    double yaw = 4;                 // 航向角 (rad)
+    
+    // 速度
+    double vx = 5;                  // 线速度 x (m/s)
+    double vy = 6;                  // 线速度 y (m/s)
+    double w = 7;                   // 角速度 (rad/s)
+    
+    // 状态
+    int32 battery_percent = 8;      // 电池百分比 (0-100)
+    int32 signal_strength = 9;      // 信号强度 (0-100)
+    
+    // 探索统计
+    double explored_area = 10;      // 已探索面积 (m²)
+    double total_area = 11;         // 总面积 (m²)
+    double coverage_rate = 12;      // 覆盖率 (0-1)
+}
+
+// ============================================================================
+// 地图更新（增量）
+// ============================================================================
+
+message MapUpdate {
+    double timestamp = 1;
+    
+    // 地图块信息
+    int32 block_x = 2;              // 块起始 x 坐标
+    int32 block_y = 3;              // 块起始 y 坐标
+    int32 width = 4;                // 块宽度 (pixels)
+    int32 height = 5;               // 块高度 (pixels)
+    
+    // 占用栅格数据（0=未知, 1-127=自由, 128-255=占用）
+    bytes occupancy_data = 6;       // 压缩或原始数据
+    
+    // 语义数据（可选）
+    bytes semantic_data = 7;        // 语义标签
+    
+    // 压缩信息
+    bool is_compressed = 8;         // 是否压缩
+    string compression_type = 9;    // 压缩类型（zlib, lz4）
+}
+
+// ============================================================================
+// 探索边界（Frontiers）
+// ============================================================================
+
+message Frontier {
+    int32 id = 1;                   // 边界ID
+    double centroid_x = 2;          // 中心点 x
+    double centroid_y = 3;          // 中心点 y
+    int32 size = 4;                 // 边界大小（像素数）
+    double gain = 5;                // 信息增益
+    bool is_selected = 6;           // 是否被选中
+}
+
+message FrontierUpdate {
+    double timestamp = 1;
+    repeated Frontier frontiers = 2;
+    int32 selected_frontier_id = 3; // 当前选中的边界
+}
+
+// ============================================================================
+// YOLOv8 检测结果
+// ============================================================================
+
+message BoundingBox {
+    float x1 = 1;                   // 左上角 x
+    float y1 = 2;                   // 左上角 y
+    float x2 = 3;                   // 右下角 x
+    float y2 = 4;                   // 右下角 y
+    float confidence = 5;           // 置信度
+    int32 class_id = 6;             // 类别ID
+    string class_name = 7;          // 类别名称
+}
+
+message YoloDetection {
+    double timestamp = 1;
+    int32 frame_id = 2;
+    repeated BoundingBox boxes = 3;
+}
+
+// ============================================================================
+// 相机帧（MJPEG）
+// ============================================================================
+
+message CameraFrame {
+    double timestamp = 1;
+    int32 frame_id = 2;
+    int32 width = 3;
+    int32 height = 4;
+    bytes jpeg_data = 5;            // JPEG 编码的图像数据
+}
+
+// ============================================================================
+// 路径与轨迹
+// ============================================================================
+
+message PathPoint {
+    double x = 1;
+    double y = 2;
+    double yaw = 3;
+}
+
+message Path {
+    double timestamp = 1;
+    repeated PathPoint points = 2;
+    bool is_trajectory = 3;         // true=历史轨迹, false=规划路径
+}
+
+// ============================================================================
+// 通用响应
+// ============================================================================
+
+message Ack {
+    bool success = 1;
+    string message = 2;
+    int32 error_code = 3;
+}
+
+// ============================================================================
+// 统一消息包装
+// ============================================================================
+
+message RobotMessage {
+    MessageType type = 1;
+    string device_id = 2;
+    double timestamp = 3;
+    
+    oneof payload {
+        DeviceRegister register_msg = 10;
+        DeviceRegisterAck register_ack = 11;
+        Telemetry telemetry = 12;
+        MapUpdate map_update = 13;
+        FrontierUpdate frontier_update = 14;
+        YoloDetection yolo_detection = 15;
+        CameraFrame camera_frame = 16;
+        Path path = 17;
+        Ack ack = 18;
+    }
+}
